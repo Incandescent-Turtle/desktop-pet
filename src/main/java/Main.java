@@ -29,12 +29,19 @@ public class Main extends JPanel
 
 	private State state = State.DEFAULT;
 	private Point wanderLoc = new Point(0,0);
-	private enum State { DEFAULT, WANDER, DRAGGED}
+	private enum State { DEFAULT, WANDER, DRAGGED }
+	private BubbleState bubbleState = BubbleState.NONE;
+	private final Map<String, List<BufferedImage>> bubbleFrames;
+	private List<BufferedImage> currBubbleFrames;
+	private int bubbleFrameNum = 0;
+	private int bubbleSteps = 0;
+
 
 
 	public Main()
 	{
-		frames = loadSprites();
+		frames = loadSprites(MisoAction.values());
+		bubbleFrames = loadSprites(BubbleState.values());
 		f = new JFrame();
 		f.setType(javax.swing.JFrame.Type.UTILITY);
 		f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -76,6 +83,14 @@ public class Main extends JPanel
 					}
 				});
 			}
+
+			@Override
+			public void mouseClicked(MouseEvent e)
+			{
+				super.mouseClicked(e);
+				bubbleState = BubbleState.HEART;
+				bubbleFrameNum = 0;
+			}
 		});
 		f.add(this);
 		f.setBackground(new Color(1.0f, 1.0f, 1.0f, 0.0f));
@@ -87,13 +102,41 @@ public class Main extends JPanel
 			updateAction();
 			doAction();
 			updateAnimation();
+			manageBubble();
 			f.repaint();
 		});
-		tryWander();
 
 		Timer wanderTimer = new Timer(1000*60*10, (e) -> tryWander());
 		mainTimer.start();
 		wanderTimer.start();
+	}
+
+	private void manageBubble()
+	{
+		if(bubbleState != BubbleState.HEART)
+		{
+			if(action == MisoAction.SLEEP || action == MisoAction.CURLED)
+			{
+				bubbleState = BubbleState.ZZZ;
+			} else if(action != MisoAction.LICKING && action != MisoAction.SITTING){
+				bubbleState = BubbleState.NONE;
+			}
+		}
+		bubbleSteps++;
+		currBubbleFrames = bubbleFrames.getOrDefault(bubbleState.name(), bubbleFrames.get(BubbleState.HEART.name()));
+		if(bubbleSteps >= bubbleState.getDelay())
+		{
+			bubbleFrameNum++;
+			bubbleSteps = 0;
+		}
+		if(bubbleFrameNum >= bubbleState.getFrameCount())
+		{
+			bubbleFrameNum = 0;
+			if(bubbleState == BubbleState.HEART)
+			{
+				bubbleState = BubbleState.NONE;
+			}
+		}
 	}
 
 	private void tryWander()
@@ -125,9 +168,20 @@ public class Main extends JPanel
 			{
 				if((animationSteps - action.getDelay()) > 40)
 				{
-					changeAction(MisoAction.CURLED);
+					var num = new Random().nextBoolean();
 					animationSteps = 0;
+					frameNum = 0;
+					if(num)
+					{
+						changeAction(MisoAction.CURLED);
+					} else {
+						changeAction(MisoAction.SLEEP);
+					}
 				}
+			} else if(action == MisoAction.SITTING && frameNum == action.getFrameCount()-1) {
+				changeAction(MisoAction.LICKING);
+				animationSteps = 0;
+				frameNum = 0;
 			} else {
 				frameNum++;
 				animationSteps =0;
@@ -136,10 +190,6 @@ public class Main extends JPanel
 		if(frameNum >= action.getFrameCount())
 		{
 			frameNum = 0;
-			if(action == MisoAction.LAYING)
-			{
-				changeAction(MisoAction.CURLED);
-			}
 		}
 	}
 
@@ -152,6 +202,24 @@ public class Main extends JPanel
 			case LEFT -> loc.translate(-1,0);
 			case UP -> loc.translate(0,-1);
 			case DOWN -> loc.translate(0,1);
+		}
+		Toolkit toolkit = Toolkit.getDefaultToolkit();
+		Dimension screenSize = toolkit.getScreenSize();
+		if(loc.x > screenSize.width-f.getWidth() )
+		{
+			loc.setLocation(screenSize.width-f.getWidth(), loc.y);
+		}
+		if(loc.x < -10)
+		{
+			loc.setLocation(-10, loc.y);
+		}
+		if(loc.y > screenSize.height-f.getHeight())
+		{
+			loc.setLocation(loc.x, screenSize.height-f.getHeight());
+		}
+		if(loc.y < -35)
+		{
+			loc.setLocation(loc.x, -35);
 		}
 		f.setLocation(loc);
 	}
@@ -195,7 +263,7 @@ public class Main extends JPanel
 				changed = changeAction(MisoAction.LEFT);
 			else if(keyboardHandler.isDown(KeyEvent.VK_RIGHT))
 				changed = changeAction(MisoAction.RIGHT);
-			else if(action != MisoAction.CURLED && action != MisoAction.RISING)
+			else if(action != MisoAction.CURLED && action != MisoAction.SITTING && action != MisoAction.LICKING && action != MisoAction.RISING && action != MisoAction.SLEEP && action != MisoAction.LAYING)
 			{
 				if(action == MisoAction.LEFT)
 				{
@@ -205,7 +273,14 @@ public class Main extends JPanel
 				}
 				if(state != State.WANDER)
 				{
-					changed = changeAction(MisoAction.LAYING);
+					var num = new Random().nextInt(3);
+					System.out.println(num);
+					if(num >= 1)
+					{
+						changed = changeAction(MisoAction.LAYING);
+					} else {
+						changed = changeAction(MisoAction.SITTING);
+					}
 				}
 			}
 			if(changed)
@@ -235,32 +310,62 @@ public class Main extends JPanel
 			var currImg = currFrames.get(frameNum);
 			if(currImg != null)
 			{
-				if((action == MisoAction.LAYING || action == MisoAction.RISING) && layingDir == Direction.LEFT || action == MisoAction.CURLED && layingDir == Direction.RIGHT)
+				if((action == MisoAction.LAYING || action == MisoAction.RISING || action == MisoAction.SLEEP) && layingDir == Direction.LEFT || action == MisoAction.CURLED && layingDir == Direction.RIGHT)
 					currImg = flipImage(currImg);
 				g.drawImage(currImg, 0,0,100,100,null);
 			}
 		}
+		if(currBubbleFrames != null && bubbleState != BubbleState.NONE)
+		{
+			var currImg = currBubbleFrames.get(bubbleFrameNum);
+			if(currImg != null)
+			{
+				int x = 30, y = 40;
+				switch(action)
+				{
+					case SLEEP:
+					case LAYING:
+					case LEFT:
+					case RIGHT:
+						if(layingDir == Direction.LEFT)
+						{
+							x-=30;
+						} else {
+							x+=30;
+						}
+						break;
+					case UP:
+					case LICKING:
+					case SITTING:
+						y-=25;
+				}
+				g.drawImage(currImg, x, y, 30, 30, null);
+			}
+		}
 
 	}
-	private Map<String, List<BufferedImage>> loadSprites()
-	{
+
+	private <T extends Enum<T> & Animated> Map<String, List<BufferedImage>> loadSprites(T[] vals) {
 		var map = new HashMap<String, List<BufferedImage>>();
+
+		for(final var action : vals)
 		{
-			for(final var action : MisoAction.values())
+			if(action.getFrameCount() <= 0)
 			{
-				var list = new ArrayList<BufferedImage>();
-				map.put(action.name(), list);
-				final var folderName = action.name().toLowerCase();
-				try
+				continue;
+			}
+			var list = new ArrayList<BufferedImage>();
+			map.put(action.name(), list);
+			final var folderName = action.name().toLowerCase();
+			try
+			{
+				for(int i = 1; i <= action.getFrameCount(); i++)
 				{
-					for(int i = 1; i <= action.getFrameCount(); i++)
-					{
-						list.add(ImageIO.read(getClass().getResource(folderName + "/" + folderName + "_" + i + ".png")));
-					}
-				} catch(IOException e)
-				{
-					throw new RuntimeException(e);
+					list.add(ImageIO.read(getClass().getResource(folderName + "/" + folderName + "_" + i + ".png")));
 				}
+			} catch(IOException e)
+			{
+				throw new RuntimeException(e);
 			}
 		}
 		return map;

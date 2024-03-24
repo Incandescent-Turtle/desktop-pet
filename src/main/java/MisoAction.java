@@ -1,4 +1,4 @@
-public enum MisoAction
+public enum MisoAction implements Animated
 {
 	UP(4,10),
 	DOWN(4,10),
@@ -6,8 +6,11 @@ public enum MisoAction
 	RIGHT(4,10),
 	CURLED(2,40),
 	LAYING(4,20),
-	SITTING(8,40),
-	RISING(2,40);
+	SITTING(4,20),
+
+	LICKING(4, 40),
+	RISING(2,40),
+	SLEEP(1, 10);
 
 	private final int frameCount, delay;
 	private MisoAction(int frameCount, int delay)
@@ -16,12 +19,14 @@ public enum MisoAction
 		this.delay = delay;
 	}
 
-	protected int getFrameCount()
+	@Override
+	public int getFrameCount()
 	{
 		return this.frameCount;
 	}
 
-	protected int getDelay()
+	@Override
+	public int getDelay()
 	{
 		return this.delay;
 	}
