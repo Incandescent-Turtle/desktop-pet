@@ -29,7 +29,7 @@ public class Main extends JPanel
 
 	private State state = State.DEFAULT;
 	private Point wanderLoc = new Point(0,0);
-	private enum State { DEFAULT, WANDER, DRAGGED }
+	private enum State { DEFAULT, WANDER }
 	private BubbleState bubbleState = BubbleState.NONE;
 	private final Map<String, List<BufferedImage>> bubbleFrames;
 	private List<BufferedImage> currBubbleFrames;
@@ -103,10 +103,14 @@ public class Main extends JPanel
 			doAction();
 			updateAnimation();
 			manageBubble();
+			if(keyboardHandler.isDown(KeyEvent.VK_W))
+			{
+				tryWander(true);
+			}
 			f.repaint();
 		});
 
-		Timer wanderTimer = new Timer(1000*60*10, (e) -> tryWander());
+		Timer wanderTimer = new Timer(1000*60*10, (e) -> tryWander(false));
 		mainTimer.start();
 		wanderTimer.start();
 	}
@@ -139,11 +143,11 @@ public class Main extends JPanel
 		}
 	}
 
-	private void tryWander()
+	private void tryWander(boolean force)
 	{
 		var rand = new Random();
 		// 50% of time
-		if(rand.nextBoolean())
+		if(!force && rand.nextBoolean())
 		{
 			return;
 		}
@@ -274,7 +278,6 @@ public class Main extends JPanel
 				if(state != State.WANDER)
 				{
 					var num = new Random().nextInt(3);
-					System.out.println(num);
 					if(num >= 1)
 					{
 						changed = changeAction(MisoAction.LAYING);
