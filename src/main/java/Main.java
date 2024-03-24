@@ -50,7 +50,6 @@ public class Main extends JPanel
 		f.setPreferredSize(dim);
 		f.setMinimumSize(dim);
 		f.setLocationRelativeTo(null);
-		f.setLocation(0,0);
 		f.setAlwaysOnTop(true);
 		setOpaque(false);
 		keyboardHandler = new KeyboardHandler(this);

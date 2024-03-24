@@ -22,6 +22,10 @@ public class KeyboardHandler extends KeyAdapter
 				if(event.getID() == KeyEvent.KEY_PRESSED)
 				{
 					pressedKeys.put(event.getKeyCode(), true);
+					if(event.getKeyCode() == KeyEvent.VK_ESCAPE)
+					{
+						System.exit(0);
+					}
 				} else if(event.getID() == KeyEvent.KEY_RELEASED)
 				{
 					pressedKeys.put(event.getKeyCode(), false);
