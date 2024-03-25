@@ -15,6 +15,7 @@ Currently these are unsupported features, and the codebase is not very friendly 
 A re-work of the programs design should make it way easier for delevopers to add in new animations and features, as well as different pets.
 I am not sure if I will add the ability for end users to add their own pets or animations, however in the future multiple pet options may be provided.
 
+## Images
 <img width="442" alt="image" src="https://github.com/Incandescent-Turtle/desktop-pet/assets/59327500/be9c01f9-6dfb-42fa-8c39-0159e6f3e694">
 <img width="427" alt="image" src="https://github.com/Incandescent-Turtle/desktop-pet/assets/59327500/956193f6-ac75-4856-8ac3-d52c958c0396">
 <img width="481" alt="image" src="https://github.com/Incandescent-Turtle/desktop-pet/assets/59327500/d77c078f-cef8-43f2-b2a0-13c06d497bdc">
