@@ -1,6 +1,9 @@
-//! Sprites (shared with the Java version) and software rendering.
+//! Sprites and software rendering.
+//!
+//! The PNGs are the Java version's (`src/main/resources`), compiled into the binary.
+//! Drawing is a simple nearest-neighbour scale, which keeps the pixel art crisp.
 
-use crate::pet::{Action, Bubble, Pet, SIZE};
+use crate::pet::{Action, BUBBLE_SIZE, Bubble, Pet, SIZE};
 
 /// Premultiplied pixels in wl_shm ARGB8888 byte order (B, G, R, A).
 struct Image {
@@ -9,6 +12,7 @@ struct Image {
     px: Vec<[u8; 4]>,
 }
 
+/// `frames!("up": 1, 2)` embeds `up/up_1.png` and `up/up_2.png` from the Java resources.
 macro_rules! frames {
     ($dir:literal: $($n:literal),+) => {
         &[$(include_bytes!(concat!(
@@ -32,21 +36,9 @@ fn action_pngs(a: Action) -> &'static [&'static [u8]] {
     }
 }
 
-const ACTIONS: [Action; 10] = [
-    Action::Up,
-    Action::Down,
-    Action::Left,
-    Action::Right,
-    Action::Curled,
-    Action::Laying,
-    Action::Sitting,
-    Action::Licking,
-    Action::Rising,
-    Action::Sleep,
-];
-
 pub struct Sprites {
-    actions: Vec<Vec<Image>>, // indexed like ACTIONS
+    /// Frames per action, indexed by `action as usize`.
+    actions: Vec<Vec<Image>>,
     zzz: Vec<Image>,
     heart: Vec<Image>,
 }
@@ -55,7 +47,7 @@ impl Sprites {
     pub fn load() -> Self {
         let decode_all = |pngs: &[&[u8]]| pngs.iter().map(|b| decode(b)).collect::<Vec<_>>();
         Sprites {
-            actions: ACTIONS.iter().map(|&a| decode_all(action_pngs(a))).collect(),
+            actions: Action::ALL.iter().map(|&a| decode_all(action_pngs(a))).collect(),
             zzz: decode_all(frames!("zzz": 1, 2, 3, 4)),
             heart: decode_all(frames!("heart": 1, 2, 3, 4)),
         }
@@ -64,8 +56,7 @@ impl Sprites {
     /// Draws the pet into a `size`x`size` ARGB8888 canvas (size = 100 * buffer scale).
     pub fn render(&self, canvas: &mut [u8], size: usize, pet: &Pet) {
         canvas.fill(0);
-        let idx = ACTIONS.iter().position(|&a| a == pet.action).unwrap();
-        let img = &self.actions[idx][pet.frame()];
+        let img = &self.actions[pet.action as usize][pet.frame()];
         blit(canvas, size, img, 0, 0, size, pet.flipped());
 
         let Some((bubble, frame)) = pet.bubble() else { return };
@@ -76,11 +67,12 @@ impl Sprites {
         let scale = size as f64 / SIZE as f64;
         let (bx, by) = pet.bubble_offset();
         let at = |v: i32| (v as f64 * scale) as usize;
-        blit(canvas, size, &frames[frame], at(bx), at(by), at(30), false);
+        blit(canvas, size, &frames[frame], at(bx), at(by), at(BUBBLE_SIZE), false);
     }
 }
 
-/// Nearest-neighbour scaled "over" blit of `img` into a `dst_w`-wide canvas.
+/// Draws `img` scaled to a `side`x`side` square at (`x0`, `y0`) on top of what's already
+/// in the square `dst_w`-wide canvas, optionally mirrored. Anything off the edge is cut off.
 fn blit(
     canvas: &mut [u8],
     dst_w: usize,
@@ -118,6 +110,7 @@ fn blit(
     }
 }
 
+/// Decodes a PNG (any 8-bit-or-less format) into premultiplied BGRA pixels.
 fn decode(bytes: &[u8]) -> Image {
     let mut dec = png::Decoder::new(std::io::Cursor::new(bytes));
     dec.set_transformations(

@@ -4,7 +4,9 @@
 //! settling down after walking > idle animations finishing), then moves if it's a walk.
 //! Animation frames are derived from how many ticks she's been in the current action.
 
+/// Her size on screen in logical pixels (the 32x32 sprites are scaled up to this).
 pub const SIZE: i32 = 100;
+pub const BUBBLE_SIZE: i32 = 30;
 
 /// How long the heart bubble shows after being petted (4 frames x 50 ticks).
 const HEART_TICKS: u32 = 200;
@@ -28,6 +30,20 @@ pub enum Action {
 }
 
 impl Action {
+    /// Every action, in declaration order, so `action as usize` indexes into it.
+    pub const ALL: [Action; 10] = [
+        Action::Up,
+        Action::Down,
+        Action::Left,
+        Action::Right,
+        Action::Curled,
+        Action::Laying,
+        Action::Sitting,
+        Action::Licking,
+        Action::Rising,
+        Action::Sleep,
+    ];
+
     /// (frame count, ticks per frame)
     fn animation(self) -> (usize, u32) {
         match self {
@@ -50,6 +66,7 @@ pub enum Bubble {
     Heart,
 }
 
+/// A monitor's area in global logical coordinates.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub struct Rect {
     pub x: i32,
@@ -213,7 +230,6 @@ impl Pet {
         }
     }
 
-    /// Called every 10 minutes: wander off half the time.
     pub fn maybe_wander(&mut self, screens: &[Rect]) {
         if fastrand::bool() {
             self.wander(screens);
@@ -284,7 +300,7 @@ impl Pet {
         }
     }
 
-    /// Where the 30x30 bubble goes inside her 100x100 square, next to her head.
+    /// Where the bubble's top-left corner goes inside her square, next to her head.
     pub fn bubble_offset(&self) -> (i32, i32) {
         match self.action {
             Action::Right => (70, 40), // her head sticks out further when walking right

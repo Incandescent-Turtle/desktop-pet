@@ -2,6 +2,7 @@
 name = "desktop-pet"
 version = "0.1.0"
 edition = "2024"
+description = "Desktop pet cat for Linux Wayland desktops (layer-shell)"
 
 [dependencies]
 fastrand = "2.5.0"

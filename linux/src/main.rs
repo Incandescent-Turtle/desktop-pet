@@ -1,7 +1,13 @@
 //! Desktop pet for Wayland compositors with layer-shell (COSMIC, KDE, Sway, Hyprland, ...).
 //!
-//! She lives in a small 100x100 overlay surface. Walking moves the surface (via its margins);
-//! crossing onto another monitor recreates the surface there. Wayland plumbing is in wayland.rs.
+//! She lives in a small 100x100 layer-shell "overlay" surface that sits above all windows.
+//! Walking moves the surface (via its margins); crossing onto another monitor recreates the
+//! surface there. Clicking her gives her keyboard focus, so the arrow keys work.
+//!
+//! - `pet.rs`: her behaviour (no Wayland code, unit tested)
+//! - `sprites.rs`: the sprites and drawing them
+//! - `main.rs`: this file, the app: timer, input, and putting her on screen
+//! - `wayland.rs`: event-handler boilerplate that forwards to methods here
 
 mod pet;
 mod sprites;
@@ -61,15 +67,23 @@ struct Screen {
     scale: i32,
 }
 
-/// The surface she's drawn in, on one monitor.
 struct Overlay {
     layer: LayerSurface,
     screen: Screen,
+    /// The compositor has told us the surface is ready; we can't draw before that.
     configured: bool,
 }
 
-/// Everything that changes what she looks like; used to skip redundant redraws.
-type Look = ((i32, i32), pet::Action, usize, bool, Option<(pet::Bubble, usize)>, i32);
+/// Everything that affects what's on screen. If it hasn't changed, we skip the redraw.
+#[derive(PartialEq, Clone, Copy)]
+struct Look {
+    pos: (i32, i32),
+    action: pet::Action,
+    frame: usize,
+    flipped: bool,
+    bubble: Option<(pet::Bubble, usize)>,
+    scale: i32,
+}
 
 struct App {
     // Wayland plumbing, handled in wayland.rs
@@ -80,16 +94,20 @@ struct App {
     layer_shell: LayerShell,
     shm: Shm,
     pool: SlotPool,
+    /// The frame currently on screen; kept alive until the next one replaces it.
     buffer: Option<Buffer>,
     keyboard: Option<wl_keyboard::WlKeyboard>,
     pointer: Option<wl_pointer::WlPointer>,
 
+    /// Her surface. `None` until the monitors are known (or after her monitor is unplugged).
     overlay: Option<Overlay>,
     last_look: Option<Look>,
+    /// `None` until the first tick, when we know where the middle of the screen is.
     pet: Option<Pet>,
     sprites: Sprites,
     keys: Keys,
     wander_ticks: u32,
+    /// Where the left button went down on her (overlay coordinates), while it's held.
     press: Option<(f64, f64)>,
     dragging: bool,
     exit: bool,
@@ -109,13 +127,11 @@ impl App {
             .collect()
     }
 
-    /// Runs every 10ms, like the Java main timer.
     fn tick(&mut self, qh: &QueueHandle<Self>) {
         let screens = self.screens();
         let rects: Vec<Rect> = screens.iter().map(|s| s.rect).collect();
         let Some(first) = rects.first() else { return };
 
-        // start in the middle of the first monitor
         let pet = self.pet.get_or_insert_with(|| {
             Pet::new((first.x + (first.w - SIZE) / 2, first.y + (first.h - SIZE) / 2))
         });
@@ -156,7 +172,7 @@ impl App {
         layer.set_keyboard_interactivity(KeyboardInteractivity::OnDemand); // focus on click
         layer.commit();
 
-        // replacing the old overlay destroys it
+        // replacing the old overlay destroys it; a drag in progress ends with it
         self.overlay = Some(Overlay { layer, screen, configured: false });
         self.last_look = None;
         self.press = None;
@@ -167,7 +183,14 @@ impl App {
         let (Some(o), Some(pet)) = (&self.overlay, &self.pet) else {
             return;
         };
-        let look = (pet.pos, pet.action, pet.frame(), pet.flipped(), pet.bubble(), o.screen.scale);
+        let look = Look {
+            pos: pet.pos,
+            action: pet.action,
+            frame: pet.frame(),
+            flipped: pet.flipped(),
+            bubble: pet.bubble(),
+            scale: o.screen.scale,
+        };
         if !o.configured || self.last_look == Some(look) {
             return;
         }
@@ -194,7 +217,7 @@ impl App {
     fn on_pointer(&mut self, events: &[PointerEvent]) {
         let Some(pet) = &mut self.pet else { return };
         // where the overlay actually is on screen right now
-        let origin = self.last_look.map_or(pet.pos, |look| look.0);
+        let origin = self.last_look.map_or(pet.pos, |look| look.pos);
         for e in events {
             let (x, y) = e.position; // relative to the overlay
             match e.kind {
@@ -220,6 +243,7 @@ impl App {
         }
     }
 
+    /// Keyboard input (only arrives while she has focus, i.e. after clicking her).
     fn on_key(&mut self, key: u32, down: bool) {
         match key {
             KEY_ESC if down => self.exit = true,

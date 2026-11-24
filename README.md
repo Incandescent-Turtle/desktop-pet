@@ -10,6 +10,18 @@ To download, check the [releases tab](https://github.com/Incandescent-Turtle/des
 
 If you are on windows, download the .zip file and extract the contents. You can then run the .exe provided to make your pet appear. If you get a warning about an unsigned .exe or something, that is okay! You can hit "More Info" and "Run Anyway". If you feel uncomfy running unfamiliar apps, all of the code is open source on this page and you can build the project yourself and run it!
 
+## Linux
+The Java version can't move its window on Wayland, so Linux has its own version written in Rust, in the [`linux/`](linux/) folder. It uses the same sprites and behaves the same way.
+
+It needs a Wayland desktop that supports layer-shell: COSMIC (Pop!_OS), KDE Plasma, Sway, Hyprland and most others. GNOME doesn't support it.
+
+To build and run it, install Rust from [rustup.rs](https://rustup.rs), then:
+```sh
+cd linux
+cargo run --release
+```
+Click your pet once to give it keyboard focus. Then the arrow keys walk it, W sends it wandering and Esc quits.
+
 ## Adding Animations and Changing Pet
 Currently these are unsupported features, and the codebase is not very friendly if you want to add your own.
 A re-work of the programs design should make it way easier for delevopers to add in new animations and features, as well as different pets.
