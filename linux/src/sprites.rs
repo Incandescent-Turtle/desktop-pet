@@ -65,18 +65,18 @@ impl Sprites {
     pub fn render(&self, canvas: &mut [u8], size: usize, pet: &Pet) {
         canvas.fill(0);
         let idx = ACTIONS.iter().position(|&a| a == pet.action).unwrap();
-        let img = &self.actions[idx][pet.frame];
+        let img = &self.actions[idx][pet.frame()];
         blit(canvas, size, img, 0, 0, size, pet.flipped());
 
-        let bubble = match pet.bubble {
-            Bubble::None => return,
+        let Some((bubble, frame)) = pet.bubble() else { return };
+        let frames = match bubble {
             Bubble::Zzz => &self.zzz,
             Bubble::Heart => &self.heart,
         };
         let scale = size as f64 / SIZE as f64;
         let (bx, by) = pet.bubble_offset();
         let at = |v: i32| (v as f64 * scale) as usize;
-        blit(canvas, size, &bubble[pet.bubble_frame], at(bx), at(by), at(30), false);
+        blit(canvas, size, &frames[frame], at(bx), at(by), at(30), false);
     }
 }
 

@@ -69,7 +69,7 @@ struct Overlay {
 }
 
 /// Everything that changes what she looks like; used to skip redundant redraws.
-type Look = ((i32, i32), pet::Action, usize, bool, pet::Bubble, usize, i32);
+type Look = ((i32, i32), pet::Action, usize, bool, Option<(pet::Bubble, usize)>, i32);
 
 struct App {
     // Wayland plumbing, handled in wayland.rs
@@ -123,7 +123,7 @@ impl App {
         self.wander_ticks += 1;
         if self.wander_ticks >= WANDER_TICKS {
             self.wander_ticks = 0;
-            pet.try_wander(false, &rects);
+            pet.maybe_wander(&rects);
         }
         if !self.dragging {
             pet.tick(&self.keys, &rects);
@@ -167,15 +167,7 @@ impl App {
         let (Some(o), Some(pet)) = (&self.overlay, &self.pet) else {
             return;
         };
-        let look = (
-            pet.pos,
-            pet.action,
-            pet.frame,
-            pet.flipped(),
-            pet.bubble,
-            pet.bubble_frame,
-            o.screen.scale,
-        );
+        let look = (pet.pos, pet.action, pet.frame(), pet.flipped(), pet.bubble(), o.screen.scale);
         if !o.configured || self.last_look == Some(look) {
             return;
         }
