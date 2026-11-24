@@ -150,15 +150,17 @@ public class Main extends JPanel
 		{
 			return;
 		}
-		Toolkit toolkit = Toolkit.getDefaultToolkit();
-		Dimension screenSize = toolkit.getScreenSize();
+		var screens = getScreenBounds();
 
 		state = State.WANDER;
 		var screenLoc = f.getLocationOnScreen();
 		Point newLoc;
+		int attempts = 0;
 		do {
-			newLoc = new Point(rand.nextInt(screenSize.width-f.getWidth()-20)+10, rand.nextInt(screenSize.height-f.getHeight()-20)+10);
-		} while(xAndYWithinThreshold(screenLoc, newLoc, 400));
+			// pick a random monitor, then a random point on it
+			var s = screens.get(rand.nextInt(screens.size()));
+			newLoc = new Point(s.x+rand.nextInt(s.width-f.getWidth()-20)+10, s.y+rand.nextInt(s.height-f.getHeight()-20)+10);
+		} while(xAndYWithinThreshold(screenLoc, newLoc, 400) && ++attempts < 100);
 		wanderLoc = newLoc;
 	}
 
@@ -206,23 +208,27 @@ public class Main extends JPanel
 			case UP -> loc.translate(0,-1);
 			case DOWN -> loc.translate(0,1);
 		}
-		Toolkit toolkit = Toolkit.getDefaultToolkit();
-		Dimension screenSize = toolkit.getScreenSize();
-		if(loc.x > screenSize.width-f.getWidth() )
+		// clamp to the area covered by all monitors
+		var all = new Rectangle();
+		for(var s : getScreenBounds())
 		{
-			loc.setLocation(screenSize.width-f.getWidth(), loc.y);
+			all = all.isEmpty() ? s : all.union(s);
 		}
-		if(loc.x < -10)
+		if(loc.x > all.x+all.width-f.getWidth() )
 		{
-			loc.setLocation(-10, loc.y);
+			loc.setLocation(all.x+all.width-f.getWidth(), loc.y);
 		}
-		if(loc.y > screenSize.height-f.getHeight())
+		if(loc.x < all.x-10)
 		{
-			loc.setLocation(loc.x, screenSize.height-f.getHeight());
+			loc.setLocation(all.x-10, loc.y);
 		}
-		if(loc.y < -35)
+		if(loc.y > all.y+all.height-f.getHeight())
 		{
-			loc.setLocation(loc.x, -35);
+			loc.setLocation(loc.x, all.y+all.height-f.getHeight());
+		}
+		if(loc.y < all.y-35)
+		{
+			loc.setLocation(loc.x, all.y-35);
 		}
 		f.setLocation(loc);
 	}
@@ -407,6 +413,16 @@ public class Main extends JPanel
 		var xDiff = Math.abs(p1.x-p2.x);
 		var yDiff = Math.abs(p1.y-p2.y);
 		return yDiff <= threshold && xDiff <= threshold;
+	}
+
+	private List<Rectangle> getScreenBounds()
+	{
+		var bounds = new ArrayList<Rectangle>();
+		for(var device : GraphicsEnvironment.getLocalGraphicsEnvironment().getScreenDevices())
+		{
+			bounds.add(device.getDefaultConfiguration().getBounds());
+		}
+		return bounds;
 	}
 
 	private boolean isMoveKeyPressed()
