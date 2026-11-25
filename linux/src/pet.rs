@@ -1,9 +1,9 @@
 //! Pet's actions
 //!
-//! Always has one`Action` active
-//! Each tick she decides her next action based on current action
-//! keys > wandering > settling down after walking > idle animations finishing, then moves if it's a walk
-//! Animation frames are derived from how many ticks she's been in the current action
+//! Always has one `Action` active.
+//! Each tick she decides her next action based on the current one:
+//! keys > wandering > settling down after walking > idle animations finishing, then moves if it's a walk.
+//! Animation frames are derived from how many ticks she's been in the current action.
 //!
 //! Timing: 1 tick = 10ms, so 100 ticks = 1 second
 
@@ -16,15 +16,24 @@ const BUBBLE_FRAMES: u32 = 4;
 const HEART_FRAME_TICKS: u32 = 50;
 const ZZZ_FRAME_TICKS: u32 = 30;
 /// Heart plays through once (200 ticks = 2s).
-/// Petting counted seperate from ticks, to not interrupt action
 const HEART_TICKS: u32 = BUBBLE_FRAMES * HEART_FRAME_TICKS;
 /// Laying's animation ends at tick 60; she holds that pose another 60 before dozing off.
 const LAYING_TICKS: u32 = 120;
-/// One play of the sitting animation (4 frames x 20 ticks), then she starts licking.
-const SITTING_TICKS: u32 = 80;
+/// One play of the sitting animation, then she starts licking.
+const SITTING_TICKS: u32 = Action::Sitting.play_ticks();
 
 /// 10 minutes between random wander attempts, like the Java wander timer.
 const WANDER_TICKS: u32 = 60_000;
+/// Wander targets are preferably further than this away (on either axis).
+const WANDER_MIN_DISTANCE: i32 = 400;
+/// Wander targets stay this far inside a monitor's edges.
+const WANDER_EDGE_MARGIN: i32 = 10;
+/// Within this distance of a wander target (on each axis) counts as arrived.
+const ARRIVED_DISTANCE: i32 = 3;
+
+/// How far she may go past the left and top edges of the screens (the Java version's limits).
+const OFFSCREEN_LEFT: i32 = 10;
+const OFFSCREEN_TOP: i32 = 35;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Action {
@@ -56,7 +65,7 @@ impl Action {
     ];
 
     /// (frame count, ticks per frame)
-    fn animation(self) -> (usize, u32) {
+    pub const fn animation(self) -> (usize, u32) {
         match self {
             Action::Up | Action::Down | Action::Left | Action::Right => (4, 10),
             Action::Laying | Action::Sitting => (4, 20),
@@ -66,8 +75,29 @@ impl Action {
         }
     }
 
+    /// Ticks until `frame` (counting from 0) starts.
+    const fn frame_start(self, frame: u32) -> u32 {
+        frame * self.animation().1
+    }
+
+    /// Ticks for one play of the whole animation.
+    const fn play_ticks(self) -> u32 {
+        self.frame_start(self.animation().0 as u32)
+    }
+
+    /// The 1px step each tick of a walk takes, or `None` if this isn't a walk.
+    fn step_delta(self) -> Option<(i32, i32)> {
+        match self {
+            Action::Up => Some((0, -1)),
+            Action::Down => Some((0, 1)),
+            Action::Left => Some((-1, 0)),
+            Action::Right => Some((1, 0)),
+            _ => None,
+        }
+    }
+
     fn is_walking(self) -> bool {
-        matches!(self, Action::Up | Action::Down | Action::Left | Action::Right)
+        self.step_delta().is_some()
     }
 }
 
@@ -87,7 +117,7 @@ pub struct Rect {
 }
 
 impl Rect {
-    pub fn contains(&self, x: i32, y: i32) -> bool {
+    pub fn contains(&self, (x, y): (i32, i32)) -> bool {
         x >= self.x && x < self.x + self.w && y >= self.y && y < self.y + self.h
     }
 
@@ -97,6 +127,20 @@ impl Rect {
         let h = (self.y + self.h).max(o.y + o.h) - y;
         Rect { x, y, w, h }
     }
+
+    fn centre(&self) -> (i32, i32) {
+        (self.x + self.w / 2, self.y + self.h / 2)
+    }
+}
+
+/// The centre of her square when its top-left corner is at `pos`.
+fn centre_of((x, y): (i32, i32)) -> (i32, i32) {
+    (x + SIZE / 2, y + SIZE / 2)
+}
+
+/// The top-left corner of her square when it's centred on `point`.
+fn top_left_at((x, y): (i32, i32)) -> (i32, i32) {
+    (x - SIZE / 2, y - SIZE / 2)
 }
 
 #[derive(Clone, Copy, Default)]
@@ -133,14 +177,16 @@ pub struct Pet {
     wander_target: Option<(i32, i32)>,
     /// Ticks until the next random wander attempt.
     wander_ticks: u32,
-    /// Ticks since she was petted, while the heart is showing.
+    /// Ticks since she was petted, while the heart is showing. Counted separately from
+    /// `ticks`, so petting doesn't interrupt what she's doing.
     heart: Option<u32>,
 }
 
 impl Pet {
-    pub fn new(pos: (i32, i32)) -> Self {
+    /// A new pet, curled up in the middle of `screen`.
+    pub fn new(screen: &Rect) -> Self {
         Pet {
-            pos,
+            pos: top_left_at(screen.centre()),
             action: Action::Curled,
             ticks: 0,
             facing_left: false,
@@ -148,6 +194,10 @@ impl Pet {
             wander_ticks: 0,
             heart: None,
         }
+    }
+
+    pub fn centre(&self) -> (i32, i32) {
+        centre_of(self.pos)
     }
 
     pub fn tick(&mut self, keys: &Keys, screens: &[Rect]) {
@@ -205,17 +255,16 @@ impl Pet {
     }
 
     /// Walk horizontally first, then vertically. `None` once she's there.
-    /// For weird monitor layours, if horizontal is blocked, try vertical until we can move horitontal again.
     fn direction_to(&self, (tx, ty): (i32, i32), screens: &[Rect]) -> Option<Action> {
         let (x, y) = self.pos;
-        let horizontal = if (x - tx).abs() < 3 {
+        let horizontal = if (x - tx).abs() < ARRIVED_DISTANCE {
             None
         } else if x > tx {
             Some(Action::Left)
         } else {
             Some(Action::Right)
         };
-        let vertical = if (y - ty).abs() < 3 {
+        let vertical = if (y - ty).abs() < ARRIVED_DISTANCE {
             None
         } else if y > ty {
             Some(Action::Up)
@@ -223,7 +272,7 @@ impl Pet {
             Some(Action::Down)
         };
         match (horizontal, vertical) {
-            // If horizontal is blocked, try vertical until we can move horizontal again.
+            // If horizontal is blocked (a gap between monitors), go vertical until it isn't.
             (Some(h), Some(v)) if self.step(h, screens).is_none() => Some(v),
             (Some(h), _) => Some(h),
             (None, v) => v,
@@ -255,31 +304,27 @@ impl Pet {
     /// Where a 1px step in `dir` puts her, kept on screen. `None` if her centre would end up
     /// in a gap between monitors (the combined rectangle isn't all covered by monitors).
     fn step(&self, dir: Action, screens: &[Rect]) -> Option<(i32, i32)> {
-        let (dx, dy) = match dir {
-            Action::Right => (1, 0),
-            Action::Left => (-1, 0),
-            Action::Up => (0, -1),
-            Action::Down => (0, 1),
-            _ => (0, 0),
-        };
-        // Rectangle created containing all monitors.
+        let (dx, dy) = dir.step_delta()?;
+        // the smallest rectangle containing all monitors
         let all = screens.iter().copied().reduce(|a, s| a.union(&s))?;
-        let x = (self.pos.0 + dx).clamp(all.x - 10, all.x + all.w - SIZE);
-        let y = (self.pos.1 + dy).clamp(all.y - 35, all.y + all.h - SIZE);
-        let centre_on_a_monitor = screens.iter().any(|s| s.contains(x + SIZE / 2, y + SIZE / 2));
+        let x = (self.pos.0 + dx).clamp(all.x - OFFSCREEN_LEFT, all.x + all.w - SIZE);
+        let y = (self.pos.1 + dy).clamp(all.y - OFFSCREEN_TOP, all.y + all.h - SIZE);
+        let centre_on_a_monitor = screens.iter().any(|s| s.contains(centre_of((x, y))));
         if centre_on_a_monitor { Some((x, y)) } else { None }
     }
 
-    /// Pick a random point on a random monitor, preferably more than 400px away.
+    /// Pick a random point on a random monitor, preferably far away.
     pub fn wander(&mut self, screens: &[Rect]) {
+        let m = WANDER_EDGE_MARGIN;
         let mut target = self.pos;
         for _ in 0..100 {
             let Some(s) = fastrand::choice(screens) else { return };
             target = (
-                s.x + 10 + fastrand::i32(0..(s.w - SIZE - 20).max(1)),
-                s.y + 10 + fastrand::i32(0..(s.h - SIZE - 20).max(1)),
+                s.x + m + fastrand::i32(0..(s.w - SIZE - 2 * m).max(1)),
+                s.y + m + fastrand::i32(0..(s.h - SIZE - 2 * m).max(1)),
             );
-            if (self.pos.0 - target.0).abs() > 400 || (self.pos.1 - target.1).abs() > 400 {
+            let (dx, dy) = (self.pos.0 - target.0, self.pos.1 - target.1);
+            if dx.abs() > WANDER_MIN_DISTANCE || dy.abs() > WANDER_MIN_DISTANCE {
                 break;
             }
         }
@@ -292,15 +337,15 @@ impl Pet {
 
     /// Being dragged: the cursor (global coordinates) holds her by the middle.
     pub fn drag_to(&mut self, cursor: (i32, i32)) {
-        self.pos = (cursor.0 - SIZE / 2, cursor.1 - SIZE / 2);
+        self.pos = top_left_at(cursor);
         self.set_action(Action::Held);
     }
 
-    /// Let go after dragging: she flops down. Starts from laying frame 2 (starting crouched)
+    /// Let go after dragging: she flops down, starting crouched (laying's second frame).
     pub fn release(&mut self) {
         if self.action == Action::Held {
             self.set_action(Action::Laying);
-            self.ticks = Action::Laying.animation().1;
+            self.ticks = Action::Laying.frame_start(1);
         }
     }
 

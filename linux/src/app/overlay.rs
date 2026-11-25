@@ -70,8 +70,7 @@ impl App {
     /// centre crosses onto a different monitor the overlay is replaced with a new one there.
     pub(super) fn follow_pet(&mut self, qh: &QueueHandle<Self>) {
         let Some(pet) = &self.pet else { return };
-        let (centre_x, centre_y) = (pet.pos.0 + SIZE / 2, pet.pos.1 + SIZE / 2);
-        let her_screen = self.screens().into_iter().find(|s| s.rect.contains(centre_x, centre_y));
+        let her_screen = self.screens().into_iter().find(|s| s.rect.contains(pet.centre()));
         let Some(her_screen) = her_screen else {
             return; // centre is between monitors (mid-drag): leave the overlay where it is
         };

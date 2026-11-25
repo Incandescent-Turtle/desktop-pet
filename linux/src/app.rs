@@ -74,9 +74,7 @@ impl App {
         let screens = self.screen_rects();
         let Some(first) = screens.first() else { return };
 
-        let pet = self.pet.get_or_insert_with(|| {
-            Pet::new((first.x + (first.w - SIZE) / 2, first.y + (first.h - SIZE) / 2))
-        });
+        let pet = self.pet.get_or_insert_with(|| Pet::new(first));
         pet.tick(&self.keys, &screens);
 
         self.follow_pet(qh);
