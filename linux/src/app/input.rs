@@ -5,7 +5,7 @@ use std::mem;
 use smithay_client_toolkit::seat::pointer::{BTN_LEFT, PointerEvent, PointerEventKind};
 
 use super::App;
-use crate::pet::Keys;
+use crate::pet::{Keys, SIZE};
 
 /// Pointer movement (px) before a press counts as a drag instead of a click.
 const DRAG_THRESHOLD: f64 = 3.0;
@@ -53,11 +53,22 @@ impl App {
             _ => self.press = Press::Dragging,
         }
 
+        // Once the cursor is off her, COSMIC keeps measuring it from where the overlay was
+        // when it left, not where we've moved it since, which sends her flying. So a cursor
+        // that gets ahead of her drops her, and she has to be picked up again.
+        let size = SIZE as f64;
+        if !(0.0..size).contains(&x) || !(0.0..size).contains(&y) {
+            self.cancel_press();
+            return;
+        }
+
         // pointer position is relative to the overlay; she needs screen coordinates
         let (Some((left, top)), Some(pet)) = (self.overlay_pos(), &mut self.pet) else {
             return;
         };
         pet.drag_to((left + x as i32, top + y as i32));
+        // move now rather than next tick, so a fast cursor is less likely to get off her
+        self.draw();
     }
 
     /// Letting go: after a drag she's dropped, otherwise it was a click and she's petted.
