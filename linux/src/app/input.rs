@@ -3,6 +3,7 @@
 use smithay_client_toolkit::seat::pointer::{BTN_LEFT, PointerEvent, PointerEventKind};
 
 use super::App;
+use crate::pet::Keys;
 
 /// Pointer movement (px) before a press counts as a drag instead of a click.
 const DRAG_THRESHOLD: f64 = 3.0;
@@ -17,32 +18,50 @@ const KEY_DOWN: u32 = 108;
 
 impl App {
     pub(super) fn on_pointer(&mut self, events: &[PointerEvent]) {
-        let overlay_pos = self.overlay_pos();
-        let Some(pet) = &mut self.pet else { return };
-        let origin = overlay_pos.unwrap_or(pet.pos);
         for e in events {
-            let (x, y) = e.position; // relative to the overlay
+            let pos = e.position; // relative to the overlay
             match e.kind {
-                PointerEventKind::Press { button: BTN_LEFT, .. } => self.press = Some((x, y)),
-                PointerEventKind::Motion { .. } => {
-                    let Some((px, py)) = self.press else { continue };
-                    if self.dragging || (x - px).hypot(y - py) >= DRAG_THRESHOLD {
-                        self.dragging = true;
-                        pet.drag_to((origin.0 + x as i32, origin.1 + y as i32));
-                    }
-                }
-                PointerEventKind::Release { button: BTN_LEFT, .. } => {
-                    if self.dragging {
-                        pet.release();
-                    } else if self.press.is_some() {
-                        pet.pet();
-                    }
-                    self.press = None;
-                    self.dragging = false;
-                }
+                PointerEventKind::Press { button: BTN_LEFT, .. } => self.press = Some(pos),
+                PointerEventKind::Motion { .. } => self.pointer_moved(pos),
+                PointerEventKind::Release { button: BTN_LEFT, .. } => self.pointer_released(),
                 _ => {}
             }
         }
+    }
+
+    /// While the button is held, moving far enough turns the press into a drag.
+    fn pointer_moved(&mut self, (x, y): (f64, f64)) {
+        let Some((press_x, press_y)) = self.press else { return };
+        let distance_moved = (x - press_x).hypot(y - press_y);
+        if !self.dragging && distance_moved < DRAG_THRESHOLD {
+            return;
+        }
+        self.dragging = true;
+
+        // pointer position is relative to the overlay; she needs screen coordinates
+        let (Some((left, top)), Some(pet)) = (self.overlay_pos(), &mut self.pet) else {
+            return;
+        };
+        pet.drag_to((left + x as i32, top + y as i32));
+    }
+
+    /// Letting go: after a drag she's dropped, otherwise it was a click and she's petted.
+    fn pointer_released(&mut self) {
+        if let Some(pet) = &mut self.pet {
+            if self.dragging {
+                pet.release();
+            } else if self.press.is_some() {
+                pet.pet();
+            }
+        }
+        self.press = None;
+        self.dragging = false;
+    }
+
+    /// Focus moved elsewhere (or the keyboard went away): forget held keys, otherwise
+    /// she'd keep walking because we'd never see the key being released.
+    pub(super) fn keyboard_focus_lost(&mut self) {
+        self.keys = Keys::default();
     }
 
     /// Keyboard input (only arrives while she has focus, i.e. after clicking her).

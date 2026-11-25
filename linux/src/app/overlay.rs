@@ -22,6 +22,9 @@ struct Screen {
     scale: i32,
 }
 
+/// The 100x100 surface she's drawn in. It's a layer-shell surface on the compositor's
+/// "overlay" layer, so it sits above all normal windows. It's anchored to its monitor's
+/// top-left corner, and setting its margins moves it.
 pub(super) struct Overlay {
     layer: LayerSurface,
     screen: Screen,
@@ -61,16 +64,22 @@ impl App {
         self.screens().into_iter().map(|s| s.rect).collect()
     }
 
-    /// Keeps the overlay on whichever monitor her centre is on.
+    /// Makes sure her overlay is on the monitor she's on.
+    ///
+    /// A layer-shell surface belongs to one monitor and can't move to another, so when her
+    /// centre crosses onto a different monitor the overlay is replaced with a new one there.
     pub(super) fn follow_pet(&mut self, qh: &QueueHandle<Self>) {
         let Some(pet) = &self.pet else { return };
-        let (cx, cy) = (pet.pos.0 + SIZE / 2, pet.pos.1 + SIZE / 2);
-        let Some(screen) = self.screens().into_iter().find(|s| s.rect.contains(cx, cy)) else {
-            return;
+        let (centre_x, centre_y) = (pet.pos.0 + SIZE / 2, pet.pos.1 + SIZE / 2);
+        let her_screen = self.screens().into_iter().find(|s| s.rect.contains(centre_x, centre_y));
+        let Some(her_screen) = her_screen else {
+            return; // centre is between monitors (mid-drag): leave the overlay where it is
         };
         match &mut self.overlay {
-            Some(o) if o.screen.output == screen.output => o.screen = screen,
-            _ => self.create_overlay(qh, screen),
+            // same monitor: just refresh its details, in case its scale or position changed
+            Some(o) if o.screen.output == her_screen.output => o.screen = her_screen,
+            // no overlay yet, or she's crossed onto another monitor
+            _ => self.create_overlay(qh, her_screen),
         }
     }
 

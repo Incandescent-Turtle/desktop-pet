@@ -1,5 +1,12 @@
-//! Wayland event plumbing required by smithay-client-toolkit. Each handler either does
-//! nothing or forwards to a method on `App` (in app.rs, overlay.rs or input.rs).
+//! Connects Wayland events to `App`.
+//!
+//! smithay-client-toolkit delivers each kind of Wayland event by calling a method of a
+//! "handler" trait, which we implement for `App`. Rust requires every method of a trait to be
+//! implemented, so the bottom of this file has handlers we don't need, left empty.
+//! The ones that matter just forward to methods in app.rs, overlay.rs and input.rs.
+//!
+//! Wayland terms: an *output* is a monitor; a *seat* is a set of input devices (keyboard,
+//! mouse); `_` marks a parameter we don't use.
 
 use smithay_client_toolkit::{
     compositor::CompositorHandler,
@@ -21,8 +28,8 @@ use smithay_client_toolkit::{
 };
 
 use super::App;
-use crate::pet::Keys;
 
+// Her overlay surface: ready to draw on, or removed by the compositor.
 impl LayerShellHandler for App {
     fn configure(
         &mut self,
@@ -40,12 +47,11 @@ impl LayerShellHandler for App {
     }
 }
 
+// Monitors being unplugged. (Monitor details are tracked by `OutputState` for us.)
 impl OutputHandler for App {
     fn output_state(&mut self) -> &mut OutputState {
         &mut self.outputs
     }
-    fn new_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
-    fn update_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
     fn output_destroyed(
         &mut self,
         _: &Connection,
@@ -54,14 +60,15 @@ impl OutputHandler for App {
     ) {
         self.output_removed(&output);
     }
+    fn new_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
+    fn update_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
 }
 
+// Input devices: start listening to the keyboard and mouse when they're available.
 impl SeatHandler for App {
     fn seat_state(&mut self) -> &mut SeatState {
         &mut self.seats
     }
-    fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
-    fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
 
     fn new_capability(
         &mut self,
@@ -86,19 +93,23 @@ impl SeatHandler for App {
         capability: Capability,
     ) {
         if capability == Capability::Keyboard
-            && let Some(k) = self.keyboard.take()
+            && let Some(keyboard) = self.keyboard.take()
         {
-            k.release();
-            self.keys = Keys::default();
+            keyboard.release();
+            self.keyboard_focus_lost();
         }
         if capability == Capability::Pointer
-            && let Some(p) = self.pointer.take()
+            && let Some(pointer) = self.pointer.take()
         {
-            p.release();
+            pointer.release();
         }
     }
+
+    fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
+    fn remove_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
 }
 
+// Mouse events over her overlay.
 impl PointerHandler for App {
     fn pointer_frame(
         &mut self,
@@ -111,7 +122,9 @@ impl PointerHandler for App {
     }
 }
 
-/// Our wl_keyboard handler. We only need raw key codes, so no keymap/xkbcommon.
+/// Keyboard events while she has focus. The toolkit's keyboard helper needs the xkbcommon
+/// library to turn keys into characters; we only need raw key codes, so we handle the
+/// keyboard directly with this.
 struct KeyboardData;
 
 impl Dispatch2<wl_keyboard::WlKeyboard, App> for KeyboardData {
@@ -127,12 +140,13 @@ impl Dispatch2<wl_keyboard::WlKeyboard, App> for KeyboardData {
             wl_keyboard::Event::Key { key, state: WEnum::Value(state), .. } => {
                 app.on_key(key, state == wl_keyboard::KeyState::Pressed);
             }
-            // focus moved elsewhere: forget held keys so she doesn't walk forever
-            wl_keyboard::Event::Leave { .. } => app.keys = Keys::default(),
+            wl_keyboard::Event::Leave { .. } => app.keyboard_focus_lost(),
             _ => {}
         }
     }
 }
+
+// ---- Required by the toolkit ----
 
 impl CompositorHandler for App {
     fn scale_factor_changed(
@@ -183,5 +197,6 @@ impl ProvidesRegistryState for App {
     registry_handlers![OutputState, SeatState];
 }
 
+// Route incoming Wayland events to the handler implementations above.
 delegate_registry!(App);
 delegate_dispatch2!(App);
