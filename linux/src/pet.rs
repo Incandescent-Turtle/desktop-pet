@@ -1,8 +1,11 @@
-//! What the pet does. Runs at 100 ticks per second, same as the Java version.
+//! Pet's actions
 //!
-//! She always has one `Action`. Each tick she decides her next action (keys > wandering >
-//! settling down after walking > idle animations finishing), then moves if it's a walk.
-//! Animation frames are derived from how many ticks she's been in the current action.
+//! Always has one`Action` active
+//! Each tick she decides her next action based on current action
+//! keys > wandering > settling down after walking > idle animations finishing, then moves if it's a walk
+//! Animation frames are derived from how many ticks she's been in the current action
+//!
+//! Timing: 1 tick = 10ms, so 100 ticks = 1 second
 
 /// Her size on screen in logical pixels (the 32x32 sprites are scaled up to this).
 pub const SIZE: i32 = 100;
@@ -17,7 +20,7 @@ const ZZZ_FRAME_TICKS: u32 = 30;
 const HEART_TICKS: u32 = BUBBLE_FRAMES * HEART_FRAME_TICKS;
 /// Laying's animation ends at tick 60; she holds that pose another 60 before dozing off.
 const LAYING_TICKS: u32 = 120;
-/// Sitting plays its 4 frames once, then she starts licking.
+/// One play of the sitting animation (4 frames x 20 ticks), then she starts licking.
 const SITTING_TICKS: u32 = 80;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -171,7 +174,7 @@ impl Pet {
             }
         }
         match self.action {
-            // stopped walking: lie down (2/3) or sit (1/3)
+            // walking state but no key pressed and no target: lie down (2/3) or sit (1/3)
             a if a.is_walking() => {
                 if fastrand::u32(0..3) > 0 {
                     Action::Laying
@@ -289,7 +292,7 @@ impl Pet {
         self.set_action(Action::Held);
     }
 
-    /// Let go after dragging: she flops down, skipping the first laying frame.
+    /// Let go after dragging: she flops down. Starts from laying frame 2 (starting crouched)
     pub fn release(&mut self) {
         if self.action == Action::Held {
             self.set_action(Action::Laying);
