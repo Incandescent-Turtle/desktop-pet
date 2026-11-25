@@ -71,42 +71,42 @@ impl Sprites {
     }
 }
 
-/// Draws `img` scaled to a `side`x`side` square at (`x0`, `y0`) on top of what's already
-/// in the square `dst_w`-wide canvas, optionally mirrored. Anything off the edge is cut off.
+/// Draws `img` stretched to a `size`x`size` square with its top-left at (`left`, `top`),
+/// on top of what's already on the (square) canvas. Pixels past the canvas edge are skipped.
 fn blit(
     canvas: &mut [u8],
-    dst_w: usize,
+    canvas_size: usize,
     img: &Image,
-    x0: usize,
-    y0: usize,
-    side: usize,
-    flip: bool,
+    left: usize,
+    top: usize,
+    size: usize,
+    mirrored: bool,
 ) {
-    for dy in 0..side {
-        let y = y0 + dy;
-        if y >= dst_w {
-            break;
-        }
-        let sy = dy * img.h / side;
-        for dx in 0..side {
-            let x = x0 + dx;
-            if x >= dst_w {
-                break;
-            }
-            let mut sx = dx * img.w / side;
-            if flip {
-                sx = img.w - 1 - sx;
-            }
-            let src = img.px[sy * img.w + sx];
-            let a = src[3] as u32;
-            if a == 0 {
+    for y in 0..size {
+        for x in 0..size {
+            let (canvas_x, canvas_y) = (left + x, top + y);
+            if canvas_x >= canvas_size || canvas_y >= canvas_size {
                 continue;
             }
-            let d = &mut canvas[(y * dst_w + x) * 4..][..4];
-            for c in 0..4 {
-                d[c] = (src[c] as u32 + d[c] as u32 * (255 - a) / 255) as u8;
+            // nearest-neighbour scaling: use the sprite pixel this canvas pixel lands on
+            let mut sprite_x = x * img.w / size;
+            let sprite_y = y * img.h / size;
+            if mirrored {
+                sprite_x = img.w - 1 - sprite_x;
             }
+            let pixel = img.px[sprite_y * img.w + sprite_x];
+            let i = (canvas_y * canvas_size + canvas_x) * 4; // 4 bytes per pixel
+            blend_over(&mut canvas[i..i + 4], pixel);
         }
+    }
+}
+
+/// Alpha-blends premultiplied `src` over `dst`. Needed because some sprite pixels are
+/// semi-transparent(shadow), so what's underneath partly shows through.
+fn blend_over(dst: &mut [u8], src: [u8; 4]) {
+    let show_through = 255 - src[3] as u32;
+    for (d, s) in dst.iter_mut().zip(src) {
+        *d = (s as u32 + *d as u32 * show_through / 255) as u8;
     }
 }
 
