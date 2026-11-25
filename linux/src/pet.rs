@@ -8,8 +8,13 @@
 pub const SIZE: i32 = 100;
 pub const BUBBLE_SIZE: i32 = 30;
 
-/// How long the heart bubble shows after being petted (4 frames x 50 ticks).
-const HEART_TICKS: u32 = 200;
+/// Both bubbles (heart and zzz) are 4-frame animations.
+const BUBBLE_FRAMES: u32 = 4;
+const HEART_FRAME_TICKS: u32 = 50;
+const ZZZ_FRAME_TICKS: u32 = 30;
+/// Heart plays through once (200 ticks = 2s).
+/// Petting counted seperate from ticks, to not interrupt action
+const HEART_TICKS: u32 = BUBBLE_FRAMES * HEART_FRAME_TICKS;
 /// Laying's animation ends at tick 60; she holds that pose another 60 before dozing off.
 const LAYING_TICKS: u32 = 120;
 /// Sitting plays its 4 frames once, then she starts licking.
@@ -305,9 +310,11 @@ impl Pet {
     /// The bubble above her and its animation frame, if any.
     pub fn bubble(&self) -> Option<(Bubble, usize)> {
         if let Some(t) = self.heart {
-            Some((Bubble::Heart, (t / 50) as usize))
+            // Heart animation plays through once, then disappears
+            Some((Bubble::Heart, (t / HEART_FRAME_TICKS) as usize))
         } else if matches!(self.action, Action::Curled | Action::Sleep) {
-            Some((Bubble::Zzz, (self.ticks / 30 % 4) as usize))
+            // Zzz animation loops
+            Some((Bubble::Zzz, (self.ticks / ZZZ_FRAME_TICKS % BUBBLE_FRAMES) as usize))
         } else {
             None
         }
