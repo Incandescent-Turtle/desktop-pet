@@ -102,7 +102,6 @@ pub struct Keys {
     pub down: bool,
     pub left: bool,
     pub right: bool,
-    pub w: bool,
 }
 
 impl Keys {
@@ -152,9 +151,6 @@ impl Pet {
             if *t >= HEART_TICKS {
                 self.heart = None;
             }
-        }
-        if keys.w {
-            self.wander(screens);
         }
         // while she's held, only the drag moves her
         if self.action != Action::Held {
@@ -268,7 +264,7 @@ impl Pet {
     }
 
     /// Pick a random point on a random monitor, preferably more than 400px away.
-    fn wander(&mut self, screens: &[Rect]) {
+    pub fn wander(&mut self, screens: &[Rect]) {
         let mut target = self.pos;
         for _ in 0..100 {
             let Some(s) = fastrand::choice(screens) else { return };

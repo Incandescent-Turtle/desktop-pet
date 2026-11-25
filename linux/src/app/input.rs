@@ -91,7 +91,12 @@ impl App {
     pub(super) fn on_key(&mut self, key: u32, down: bool) {
         match key {
             KEY_ESC if down => self.exit = true,
-            KEY_W => self.keys.w = down,
+            KEY_W if down => {
+                let screens = self.screen_rects();
+                if let Some(pet) = &mut self.pet {
+                    pet.wander(&screens);
+                }
+            }
             KEY_UP => self.keys.up = down,
             KEY_DOWN => self.keys.down = down,
             KEY_LEFT => self.keys.left = down,
