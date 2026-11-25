@@ -1,5 +1,5 @@
 //! Wayland event plumbing required by smithay-client-toolkit. Each handler either does
-//! nothing or forwards to a method on `App` in main.rs.
+//! nothing or forwards to a method on `App` (in app.rs, overlay.rs or input.rs).
 
 use smithay_client_toolkit::{
     compositor::CompositorHandler,
@@ -20,7 +20,8 @@ use smithay_client_toolkit::{
     shm::{Shm, ShmHandler},
 };
 
-use crate::{App, Keys};
+use super::App;
+use crate::pet::Keys;
 
 impl LayerShellHandler for App {
     fn configure(
@@ -31,18 +32,11 @@ impl LayerShellHandler for App {
         _: LayerSurfaceConfigure,
         _: u32,
     ) {
-        if let Some(o) = &mut self.overlay
-            && &o.layer == layer
-        {
-            o.configured = true;
-            self.draw();
-        }
+        self.overlay_configured(layer);
     }
 
     fn closed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &LayerSurface) {
-        // the compositor removed it (e.g. its monitor went away): respawn on the next tick
-        self.overlay = None;
-        self.pet = None;
+        self.overlay_closed();
     }
 }
 
@@ -58,10 +52,7 @@ impl OutputHandler for App {
         _: &QueueHandle<Self>,
         output: wl_output::WlOutput,
     ) {
-        if self.overlay.as_ref().is_some_and(|o| o.screen.output == output) {
-            self.overlay = None;
-            self.pet = None;
-        }
+        self.output_removed(&output);
     }
 }
 
