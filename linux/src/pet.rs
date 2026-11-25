@@ -10,8 +10,8 @@ pub const BUBBLE_SIZE: i32 = 30;
 
 /// How long the heart bubble shows after being petted (4 frames x 50 ticks).
 const HEART_TICKS: u32 = 200;
-/// Laying plays its 4 frames, then holds the last one before she dozes off.
-const LAYING_TICKS: u32 = 121;
+/// Laying's animation ends at tick 60; she holds that pose another 60 before dozing off.
+const LAYING_TICKS: u32 = 120;
 /// Sitting plays its 4 frames once, then she starts licking.
 const SITTING_TICKS: u32 = 80;
 
