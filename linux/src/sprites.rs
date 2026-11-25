@@ -1,4 +1,4 @@
-//! Sprites and software rendering.
+//! Sprites and rendering.
 //!
 //! The PNGs are the Java version's (`src/main/resources`), compiled into the binary.
 //! Drawing is a simple nearest-neighbour scale, which keeps the pixel art crisp.
@@ -12,7 +12,15 @@ struct Image {
     px: Vec<[u8; 4]>,
 }
 
-/// `frames!("up": 1, 2)` embeds `up/up_1.png` and `up/up_2.png` from the Java resources.
+/// Builds a list of embedded PNG frames. `frames!("up": 1, 2)` expands to:
+///
+/// ```ignore
+/// &[include_bytes!("../../src/main/resources/up/up_1.png"),
+///   include_bytes!("../../src/main/resources/up/up_2.png")]
+/// ```
+///
+/// `include_bytes!` reads each file at compile time, so the binary needs no PNGs next to it.
+/// Paths are relative to this file, hence `../../` up to the repo root.
 macro_rules! frames {
     ($dir:literal: $($n:literal),+) => {
         &[$(include_bytes!(concat!(
