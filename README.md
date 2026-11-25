@@ -15,12 +15,16 @@ The Java version can't move its window on Wayland, so Linux has its own version 
 
 It needs a Wayland desktop that supports layer-shell: COSMIC (Pop!_OS), KDE Plasma, Sway, Hyprland and most others. GNOME doesn't support it.
 
+The Rust version only runs on Linux for now; it won't build or run on Windows. On Windows, use the Java version from the [releases tab](https://github.com/Incandescent-Turtle/desktop-pet/releases). Windows support is planned soon.
+
 To build and run it, install Rust from [rustup.rs](https://rustup.rs), then:
 ```sh
 cd linux
 cargo run --release
 ```
 Click your pet once to give it keyboard focus. Then the arrow keys walk it, W sends it wandering and Esc quits.
+
+If you move the mouse too fast while dragging, your pet gets dropped, move her more carefull! Click and drag again to pick it back up.
 
 ## Adding Animations and Changing Pet
 Currently these are unsupported features, and the codebase is not very friendly if you want to add your own.
