@@ -101,8 +101,7 @@ impl App {
         // replacing the old overlay destroys it; a drag in progress ends with it
         self.overlay =
             Some(Overlay { layer, screen, configured: false, last_look: None, buffer: None });
-        self.press = None;
-        self.dragging = false;
+        self.cancel_press();
     }
 
     pub(super) fn draw(&mut self) {

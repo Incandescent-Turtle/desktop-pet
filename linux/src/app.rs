@@ -4,6 +4,7 @@ mod input;
 mod overlay;
 mod wayland;
 
+use input::Press;
 use overlay::Overlay;
 use smithay_client_toolkit::{
     compositor::CompositorState,
@@ -46,9 +47,7 @@ pub struct App {
 
     // input state, handled in app/input.rs
     keys: Keys,
-    /// Where the left button went down on her (overlay coordinates), while it's held.
-    press: Option<(f64, f64)>,
-    dragging: bool,
+    press: Press,
     pub exit: bool,
 }
 
@@ -71,8 +70,7 @@ impl App {
             sprites: Sprites::load(),
             wander_ticks: 0,
             keys: Keys::default(),
-            press: None,
-            dragging: false,
+            press: Press::default(),
             exit: false,
         }
     }
@@ -90,9 +88,7 @@ impl App {
             self.wander_ticks = 0;
             pet.maybe_wander(&screens);
         }
-        if !self.dragging {
-            pet.tick(&self.keys, &screens);
-        }
+        pet.tick(&self.keys, &screens);
 
         self.follow_pet(qh);
         self.draw();

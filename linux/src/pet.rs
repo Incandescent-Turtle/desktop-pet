@@ -58,8 +58,8 @@ impl Action {
             Action::Up | Action::Down | Action::Left | Action::Right => (4, 10),
             Action::Laying | Action::Sitting => (4, 20),
             Action::Licking => (4, 40),
-            Action::Curled | Action::Held => (2, 40),
-            Action::Sleep => (1, 10),
+            Action::Curled => (2, 40),
+            Action::Held | Action::Sleep => (1, 10),
         }
     }
 
@@ -156,6 +156,7 @@ impl Pet {
         if keys.w {
             self.wander(screens);
         }
+        // while she's held, only the drag moves her
         if self.action != Action::Held {
             let next = self.next_action(keys, screens);
             self.set_action(next);
