@@ -76,7 +76,7 @@ impl App {
         let press = mem::take(&mut self.press);
         let Some(pet) = &mut self.pet else { return };
         match press {
-            Press::Dragging => pet.release(),
+            Press::Dragging => pet.put_down(),
             Press::Down(..) => pet.pet(),
             Press::None => {}
         }
@@ -88,7 +88,7 @@ impl App {
         if matches!(mem::take(&mut self.press), Press::Dragging)
             && let Some(pet) = &mut self.pet
         {
-            pet.release();
+            pet.put_down();
         }
     }
 

@@ -342,7 +342,7 @@ impl Pet {
     }
 
     /// Let go after dragging: she flops down, starting crouched (laying's second frame).
-    pub fn release(&mut self) {
+    pub fn put_down(&mut self) {
         if self.action == Action::Held {
             self.set_action(Action::Laying);
             self.ticks = Action::Laying.frame_start(1);
