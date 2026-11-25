@@ -25,7 +25,7 @@ pub enum Action {
     Laying,
     Sitting,
     Licking,
-    Rising,
+    Held,
     Sleep,
 }
 
@@ -40,7 +40,7 @@ impl Action {
         Action::Laying,
         Action::Sitting,
         Action::Licking,
-        Action::Rising,
+        Action::Held,
         Action::Sleep,
     ];
 
@@ -50,7 +50,7 @@ impl Action {
             Action::Up | Action::Down | Action::Left | Action::Right => (4, 10),
             Action::Laying | Action::Sitting => (4, 20),
             Action::Licking => (4, 40),
-            Action::Curled | Action::Rising => (2, 40),
+            Action::Curled | Action::Held => (2, 40),
             Action::Sleep => (1, 10),
         }
     }
@@ -148,7 +148,7 @@ impl Pet {
         if keys.w {
             self.wander(screens);
         }
-        if self.action != Action::Rising {
+        if self.action != Action::Held {
             let next = self.next_action(keys);
             self.set_action(next);
         }
@@ -259,12 +259,12 @@ impl Pet {
     /// Being dragged: the cursor (global coordinates) holds her by the middle.
     pub fn drag_to(&mut self, cursor: (i32, i32)) {
         self.pos = (cursor.0 - SIZE / 2, cursor.1 - SIZE / 2);
-        self.set_action(Action::Rising);
+        self.set_action(Action::Held);
     }
 
     /// Let go after dragging: she flops down, skipping the first laying frame.
     pub fn release(&mut self) {
-        if self.action == Action::Rising {
+        if self.action == Action::Held {
             self.set_action(Action::Laying);
             self.ticks = Action::Laying.animation().1;
         }
@@ -294,7 +294,7 @@ impl Pet {
     /// Whether to mirror the sprite (only some animations have a left/right version).
     pub fn flipped(&self) -> bool {
         match self.action {
-            Action::Laying | Action::Rising | Action::Sleep => self.facing_left,
+            Action::Laying | Action::Held | Action::Sleep => self.facing_left,
             Action::Curled => !self.facing_left,
             _ => false,
         }

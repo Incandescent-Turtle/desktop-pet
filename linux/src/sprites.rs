@@ -31,7 +31,7 @@ fn action_pngs(a: Action) -> &'static [&'static [u8]] {
         Action::Laying => frames!("laying": 1, 2, 3, 4),
         Action::Sitting => frames!("sitting": 1, 2, 3, 4),
         Action::Licking => frames!("licking": 1, 2, 3, 4),
-        Action::Rising => frames!("rising": 1, 2),
+        Action::Held => frames!("rising": 1, 2),
         Action::Sleep => frames!("sleep": 1),
     }
 }
