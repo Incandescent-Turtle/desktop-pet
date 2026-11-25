@@ -149,18 +149,18 @@ impl Pet {
             self.wander(screens);
         }
         if self.action != Action::Held {
-            let next = self.next_action(keys);
+            let next = self.next_action(keys, screens);
             self.set_action(next);
         }
         self.walk(screens);
     }
 
-    fn next_action(&mut self, keys: &Keys) -> Action {
+    fn next_action(&mut self, keys: &Keys, screens: &[Rect]) -> Action {
         if let Some(dir) = keys.direction() {
             return dir;
         }
         if let Some(target) = self.wander_target {
-            match self.direction_to(target) {
+            match self.direction_to(target, screens) {
                 Some(dir) => return dir,
                 None => self.wander_target = None, // arrived
             }
@@ -187,14 +187,28 @@ impl Pet {
     }
 
     /// Walk horizontally first, then vertically. `None` once she's there.
-    fn direction_to(&self, (tx, ty): (i32, i32)) -> Option<Action> {
+    /// For weird monitor layours, if horizontal is blocked, try vertical until we can move horitontal again.
+    fn direction_to(&self, (tx, ty): (i32, i32), screens: &[Rect]) -> Option<Action> {
         let (x, y) = self.pos;
-        if (x - tx).abs() >= 3 {
-            Some(if x > tx { Action::Left } else { Action::Right })
-        } else if (y - ty).abs() >= 3 {
-            Some(if y > ty { Action::Up } else { Action::Down })
-        } else {
+        let horizontal = if (x - tx).abs() < 3 {
             None
+        } else if x > tx {
+            Some(Action::Left)
+        } else {
+            Some(Action::Right)
+        };
+        let vertical = if (y - ty).abs() < 3 {
+            None
+        } else if y > ty {
+            Some(Action::Up)
+        } else {
+            Some(Action::Down)
+        };
+        match (horizontal, vertical) {
+            // If horizontal is blocked, try vertical until we can move horizontal again.
+            (Some(h), Some(v)) if self.step(h, screens).is_none() => Some(v),
+            (Some(h), _) => Some(h),
+            (None, v) => v,
         }
     }
 
@@ -210,24 +224,32 @@ impl Pet {
         }
     }
 
-    /// Moves 1px if walking, staying on screen and out of gaps between monitors.
     fn walk(&mut self, screens: &[Rect]) {
-        let (dx, dy) = match self.action {
+        if !self.action.is_walking() {
+            return;
+        }
+        match self.step(self.action, screens) {
+            Some(pos) => self.pos = pos,
+            None => self.wander_target = None, // can't get there
+        }
+    }
+
+    /// Where a 1px step in `dir` puts her, kept on screen. `None` if her centre would end up
+    /// in a gap between monitors (the combined rectangle isn't all covered by monitors).
+    fn step(&self, dir: Action, screens: &[Rect]) -> Option<(i32, i32)> {
+        let (dx, dy) = match dir {
             Action::Right => (1, 0),
             Action::Left => (-1, 0),
             Action::Up => (0, -1),
             Action::Down => (0, 1),
-            _ => return,
+            _ => (0, 0),
         };
-        let Some(all) = screens.iter().copied().reduce(|a, s| a.union(&s)) else { return };
-        // same margins as the Java version: the sprite has transparent padding
+        // Rectangle created containing all monitors.
+        let all = screens.iter().copied().reduce(|a, s| a.union(&s))?;
         let x = (self.pos.0 + dx).clamp(all.x - 10, all.x + all.w - SIZE);
         let y = (self.pos.1 + dy).clamp(all.y - 35, all.y + all.h - SIZE);
-        if screens.iter().any(|s| s.contains(x + SIZE / 2, y + SIZE / 2)) {
-            self.pos = (x, y);
-        } else {
-            self.wander_target = None; // can't get there
-        }
+        let centre_on_a_monitor = screens.iter().any(|s| s.contains(x + SIZE / 2, y + SIZE / 2));
+        if centre_on_a_monitor { Some((x, y)) } else { None }
     }
 
     pub fn maybe_wander(&mut self, screens: &[Rect]) {
