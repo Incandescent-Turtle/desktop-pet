@@ -3,7 +3,7 @@
 //! The PNGs are the Java version's (`src/main/resources`), compiled into the binary.
 //! Drawing is a simple nearest-neighbour scale, which keeps the pixel art crisp.
 
-use crate::pet::{Action, BUBBLE_SIZE, Bubble, Pet, SIZE};
+use crate::pet::{Action, BUBBLE_FRAMES, BUBBLE_SIZE, Bubble, Pet, SIZE};
 
 /// Premultiplied pixels in wl_shm ARGB8888 byte order (B, G, R, A).
 struct Image {
@@ -53,17 +53,29 @@ pub struct Sprites {
 }
 
 impl Sprites {
+    /// Panics if the frame counts in `pet.rs` don't match the embedded PNGs, since drawing
+    /// would index past the end of the frames.
     pub fn load() -> Self {
+        for (i, a) in Action::ALL.into_iter().enumerate() {
+            assert_eq!(a as usize, i, "Action::ALL is out of order");
+            assert_eq!(action_pngs(a).len(), a.animation().0, "wrong frame count for {a:?}");
+        }
+        let zzz: &[&[u8]] = frames!("zzz": 1, 2, 3, 4);
+        let heart: &[&[u8]] = frames!("heart": 1, 2, 3, 4);
+        assert!(zzz.len() == BUBBLE_FRAMES as usize && heart.len() == BUBBLE_FRAMES as usize);
+
         let decode_all = |pngs: &[&[u8]]| pngs.iter().map(|b| decode(b)).collect::<Vec<_>>();
         Sprites {
             actions: Action::ALL.iter().map(|&a| decode_all(action_pngs(a))).collect(),
-            zzz: decode_all(frames!("zzz": 1, 2, 3, 4)),
-            heart: decode_all(frames!("heart": 1, 2, 3, 4)),
+            zzz: decode_all(zzz),
+            heart: decode_all(heart),
         }
     }
 
-    /// Draws the pet into a `size`x`size` ARGB8888 canvas (size = 100 * buffer scale).
-    pub fn render(&self, canvas: &mut [u8], size: usize, pet: &Pet) {
+    /// Draws the pet into an ARGB8888 canvas `SIZE * scale` pixels square.
+    pub fn render(&self, canvas: &mut [u8], scale: i32, pet: &Pet) {
+        let at = |v: i32| (v * scale) as usize;
+        let size = at(SIZE);
         canvas.fill(0);
         let img = &self.actions[pet.action as usize][pet.frame()];
         blit(canvas, size, img, 0, 0, size, pet.flipped());
@@ -73,9 +85,7 @@ impl Sprites {
             Bubble::Zzz => &self.zzz,
             Bubble::Heart => &self.heart,
         };
-        let scale = size as f64 / SIZE as f64;
         let (bx, by) = pet.bubble_offset();
-        let at = |v: i32| (v as f64 * scale) as usize;
         blit(canvas, size, &frames[frame], at(bx), at(by), at(BUBBLE_SIZE), false);
     }
 }

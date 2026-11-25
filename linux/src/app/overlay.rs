@@ -124,7 +124,7 @@ impl App {
             .pool
             .create_buffer(size, size, size * 4, wl_shm::Format::Argb8888)
             .expect("failed to create buffer");
-        self.sprites.render(canvas, size as usize, pet);
+        self.sprites.render(canvas, o.screen.scale, pet);
 
         let surface = o.layer.wl_surface();
         let (left, top) = (pet.pos.0 - o.screen.rect.x, pet.pos.1 - o.screen.rect.y);

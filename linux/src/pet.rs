@@ -12,7 +12,7 @@ pub const SIZE: i32 = 100;
 pub const BUBBLE_SIZE: i32 = 30;
 
 /// Both bubbles (heart and zzz) are 4-frame animations.
-const BUBBLE_FRAMES: u32 = 4;
+pub const BUBBLE_FRAMES: u32 = 4;
 const HEART_FRAME_TICKS: u32 = 50;
 const ZZZ_FRAME_TICKS: u32 = 30;
 /// Heart plays through once (200 ticks = 2s).
