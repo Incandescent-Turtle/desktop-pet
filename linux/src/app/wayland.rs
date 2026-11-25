@@ -43,7 +43,7 @@ impl LayerShellHandler for App {
     }
 
     fn closed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &LayerSurface) {
-        self.overlay_closed();
+        self.respawn();
     }
 }
 

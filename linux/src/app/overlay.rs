@@ -152,15 +152,15 @@ impl App {
         }
     }
 
-    /// The compositor removed the overlay (e.g. its monitor went away): respawn on the next tick.
-    pub(super) fn overlay_closed(&mut self) {
+    /// Her overlay is gone (e.g. its monitor went away): she respawns on the next tick.
+    pub(super) fn respawn(&mut self) {
         self.overlay = None;
         self.pet = None;
     }
 
     pub(super) fn output_removed(&mut self, output: &wl_output::WlOutput) {
         if self.overlay.as_ref().is_some_and(|o| &o.screen.output == output) {
-            self.overlay_closed();
+            self.respawn();
         }
     }
 }
