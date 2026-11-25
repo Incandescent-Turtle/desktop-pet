@@ -23,9 +23,6 @@ use smithay_client_toolkit::{
 use crate::pet::{Keys, Pet, SIZE};
 use crate::sprites::Sprites;
 
-/// 10 minutes of ticks between random wander attempts, like the Java wander timer.
-const WANDER_TICKS: u32 = 60_000;
-
 pub struct App {
     // Wayland plumbing, handled in app/wayland.rs
     registry: RegistryState,
@@ -43,7 +40,6 @@ pub struct App {
     /// `None` until the first tick, when we know where the middle of the screen is.
     pet: Option<Pet>,
     sprites: Sprites,
-    wander_ticks: u32,
 
     // input state, handled in app/input.rs
     keys: Keys,
@@ -68,7 +64,6 @@ impl App {
             overlay: None,
             pet: None,
             sprites: Sprites::load(),
-            wander_ticks: 0,
             keys: Keys::default(),
             press: Press::default(),
             exit: false,
@@ -82,12 +77,6 @@ impl App {
         let pet = self.pet.get_or_insert_with(|| {
             Pet::new((first.x + (first.w - SIZE) / 2, first.y + (first.h - SIZE) / 2))
         });
-
-        self.wander_ticks += 1;
-        if self.wander_ticks >= WANDER_TICKS {
-            self.wander_ticks = 0;
-            pet.maybe_wander(&screens);
-        }
         pet.tick(&self.keys, &screens);
 
         self.follow_pet(qh);

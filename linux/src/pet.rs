@@ -23,6 +23,9 @@ const LAYING_TICKS: u32 = 120;
 /// One play of the sitting animation (4 frames x 20 ticks), then she starts licking.
 const SITTING_TICKS: u32 = 80;
 
+/// 10 minutes between random wander attempts, like the Java wander timer.
+const WANDER_TICKS: u32 = 60_000;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Action {
     Up,
@@ -128,6 +131,8 @@ pub struct Pet {
     ticks: u32,
     facing_left: bool,
     wander_target: Option<(i32, i32)>,
+    /// Ticks until the next random wander attempt.
+    wander_ticks: u32,
     /// Ticks since she was petted, while the heart is showing.
     heart: Option<u32>,
 }
@@ -140,6 +145,7 @@ impl Pet {
             ticks: 0,
             facing_left: false,
             wander_target: None,
+            wander_ticks: 0,
             heart: None,
         }
     }
@@ -150,6 +156,13 @@ impl Pet {
             *t += 1;
             if *t >= HEART_TICKS {
                 self.heart = None;
+            }
+        }
+        self.wander_ticks += 1;
+        if self.wander_ticks >= WANDER_TICKS {
+            self.wander_ticks = 0;
+            if fastrand::bool() {
+                self.wander(screens);
             }
         }
         // while she's held, only the drag moves her
@@ -255,12 +268,6 @@ impl Pet {
         let y = (self.pos.1 + dy).clamp(all.y - 35, all.y + all.h - SIZE);
         let centre_on_a_monitor = screens.iter().any(|s| s.contains(x + SIZE / 2, y + SIZE / 2));
         if centre_on_a_monitor { Some((x, y)) } else { None }
-    }
-
-    pub fn maybe_wander(&mut self, screens: &[Rect]) {
-        if fastrand::bool() {
-            self.wander(screens);
-        }
     }
 
     /// Pick a random point on a random monitor, preferably more than 400px away.
